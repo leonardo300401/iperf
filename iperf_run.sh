@@ -1,42 +1,44 @@
 #!/bin/bash
 
-# Crea un timestamp per i file di output
-timestamp=$(date +"%H.%M.%S")
+# 🟢 Chiedi il nome del dispositivo e altre info
+read -p "📌 Inserisci il nome del dispositivo testato: " DUT
+read -p "📌 Quante posizioni vuoi testare? " POSIZIONI
+read -p "📌 Tempo di campionamento (secondi)? " TEMPO
+read -p "📌 Inserisci l'IP del server iperf3: " IP
 
-# Chiedi all'utente i parametri di test
-read -p "Aggiungi il modello testato ed eventuali note (senza spazi): " DUT
-read -p "Scrivi quante posizioni testare: " posizioni
-read -p "Imposta il tempo di campionamento per ogni posizione (secondi): " tempo
-read -p "Aggiungi l'IP della CPE: " IP
+PARALLEL=4  # Numero di flussi paralleli
 
-# Crea la cartella per i risultati
-mkdir -p "${DUT}_${timestamp}"
+# 📌 Crea una cartella con il nome del dispositivo e timestamp
+timestamp=$(date +"%Y-%m-%d_%H-%M-%S")
+DIR="${DUT}_${timestamp}"
+mkdir -p "$DIR"
 
-echo "Ora comincia il test di wifi performance."
-sleep 2
-clear
+echo "🟢 Cartella creata: $DIR"
 
-count=0
-while [ "$count" -lt "$posizioni" ]; do
-    count=$((count+1))
+# 🔍 Controllo connessione Wi-Fi
+termux-wifi-connectioninfo > "$DIR/WiFi_info.json"
+echo "🟢 Info Wi-Fi salvate in WiFi_info.json"
+cat "$DIR/WiFi_info.json"
 
-    read -p "Posizionati per Posizione n. $count e premi Invio..."
+# 🔁 Loop per ogni posizione
+for (( count=1; count<=POSIZIONI; count++ ))
+do
+    echo "📍 Posizione $count: posizionati e premi ENTER per iniziare"
+    read
 
-    echo "Test di Download in esecuzione..."
-    echo "Il test è stato eseguito il $(date)" >> "${DUT}_${timestamp}/Download_posizione${count}.csv"
-    termux-wifi-connectioninfo >> "${DUT}_${timestamp}/Download_posizione${count}.csv"
+    # 🔽 TEST DOWNLOAD
+    echo "🟢 Inizio test di Download per la posizione $count..."
+    echo "Test eseguito il $(date)" > "$DIR/Download_posizione${count}.csv"
+    iperf3 -c $IP -t $TEMPO -P $PARALLEL -R >> "$DIR/Download_posizione${count}.csv"
+    echo "✅ Download completato per posizione $count"
+    cat "$DIR/Download_posizione${count}.csv"
 
-    iperf3 -c "$IP" -t "$tempo" -P 4 -R >> "${DUT}_${timestamp}/Download_posizione${count}.csv"
-
-    echo "Test di Upload in esecuzione..."
-    echo "Il test è stato eseguito il $(date)" >> "${DUT}_${timestamp}/Upload_posizione${count}.csv"
-    termux-wifi-connectioninfo >> "${DUT}_${timestamp}/Upload_posizione${count}.csv"
-
-    iperf3 -c "$IP" -t "$tempo" -P 4 >> "${DUT}_${timestamp}/Upload_posizione${count}.csv"
-
-    echo "Download/Upload nella posizione n.$count completato"
-    sleep 2
-    clear
+    # 🔼 TEST UPLOAD
+    echo "🟢 Inizio test di Upload per la posizione $count..."
+    echo "Test eseguito il $(date)" > "$DIR/Upload_posizione${count}.csv"
+    iperf3 -c $IP -t $TEMPO -P $PARALLEL >> "$DIR/Upload_posizione${count}.csv"
+    echo "✅ Upload completato per posizione $count"
+    cat "$DIR/Upload_posizione${count}.csv"
 done
 
-echo "Test finito!"
+echo "✅ Test completato! Tutti i file sono salvati in: $DIR"
