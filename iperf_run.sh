@@ -1,18 +1,23 @@
 #!/bin/bash
 
-# Imposta l'indirizzo IP del server iperf
-SERVER_IP="192.168.1.21"
+# Definisci i file di output
+RAW_OUTPUT_FILE="iperf_output.json"
+CSV_OUTPUT_FILE="iperf_results.csv"
 
-# Durata del test in secondi
-DURATION=10
+# Esegui il test e salva tutto l'output JSON
+iperf3 -c 192.168.1.21 -t 10 -J > "$RAW_OUTPUT_FILE"
 
-# Comando per eseguire il test di velocità con iperf3
-echo "🔄 Avvio test iperf3 verso $SERVER_IP per $DURATION secondi..."
-iperf3 -c "$SERVER_IP" -t "$DURATION"
-
-# Controlla se il comando è andato a buon fine
-if [ $? -eq 0 ]; then
-    echo "✅ Test completato con successo!"
-else
-    echo "❌ Errore durante l'esecuzione di iperf3!"
+# Se il CSV non esiste, crea l'intestazione
+if [ ! -f "$CSV_OUTPUT_FILE" ]; then
+    echo "Timestamp,Transfer (MB),Bandwidth (Mbit/s)" > "$CSV_OUTPUT_FILE"
 fi
+
+# Estrai i dati principali dal JSON e scrivili nel CSV
+jq -r '
+    .end.sum_sent | 
+    [.start.timestamp.timesecs, .bytes/1048576, .bits_per_second/1000000] |
+    @csv' "$RAW_OUTPUT_FILE" >> "$CSV_OUTPUT_FILE"
+
+# Messaggio di conferma
+echo "✅ Test completato! Output JSON salvato in $RAW_OUTPUT_FILE"
+echo "✅ Risultati principali salvati in $CSV_OUTPUT_FILE"
