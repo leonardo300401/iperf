@@ -1,23 +1,42 @@
 #!/bin/bash
 
-# Definisci i file di output
-RAW_OUTPUT_FILE="iperf_output.json"
-CSV_OUTPUT_FILE="iperf_results.csv"
+# Crea un timestamp per i file di output
+timestamp=$(date +"%H.%M.%S")
 
-# Esegui il test e salva tutto l'output JSON
-iperf3 -c 192.168.1.21 -t 10 -J > "$RAW_OUTPUT_FILE"
+# Chiedi all'utente i parametri di test
+read -p "Aggiungi il modello testato ed eventuali note (senza spazi): " DUT
+read -p "Scrivi quante posizioni testare: " posizioni
+read -p "Imposta il tempo di campionamento per ogni posizione (secondi): " tempo
+read -p "Aggiungi l'IP della CPE: " IP
 
-# Se il CSV non esiste, crea l'intestazione
-if [ ! -f "$CSV_OUTPUT_FILE" ]; then
-    echo "Timestamp,Transfer (MB),Bandwidth (Mbit/s)" > "$CSV_OUTPUT_FILE"
-fi
+# Crea la cartella per i risultati
+mkdir -p "${DUT}_${timestamp}"
 
-# Estrai i dati principali dal JSON e scrivili nel CSV
-jq -r '
-    .end.sum_sent | 
-    [.start.timestamp.timesecs, .bytes/1048576, .bits_per_second/1000000] |
-    @csv' "$RAW_OUTPUT_FILE" >> "$CSV_OUTPUT_FILE"
+echo "Ora comincia il test di wifi performance."
+sleep 2
+clear
 
-# Messaggio di conferma
-echo "✅ Test completato! Output JSON salvato in $RAW_OUTPUT_FILE"
-echo "✅ Risultati principali salvati in $CSV_OUTPUT_FILE"
+count=0
+while [ "$count" -lt "$posizioni" ]; do
+    count=$((count+1))
+
+    read -p "Posizionati per Posizione n. $count e premi Invio..."
+
+    echo "Test di Download in esecuzione..."
+    echo "Il test è stato eseguito il $(date)" >> "${DUT}_${timestamp}/Download_posizione${count}.csv"
+    termux-wifi-connectioninfo >> "${DUT}_${timestamp}/Download_posizione${count}.csv"
+
+    iperf3 -c "$IP" -t "$tempo" -P 4 -R >> "${DUT}_${timestamp}/Download_posizione${count}.csv"
+
+    echo "Test di Upload in esecuzione..."
+    echo "Il test è stato eseguito il $(date)" >> "${DUT}_${timestamp}/Upload_posizione${count}.csv"
+    termux-wifi-connectioninfo >> "${DUT}_${timestamp}/Upload_posizione${count}.csv"
+
+    iperf3 -c "$IP" -t "$tempo" -P 4 >> "${DUT}_${timestamp}/Upload_posizione${count}.csv"
+
+    echo "Download/Upload nella posizione n.$count completato"
+    sleep 2
+    clear
+done
+
+echo "Test finito!"
