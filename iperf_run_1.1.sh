@@ -1,5 +1,14 @@
 #!/bin/bash
 
+#!/bin/bash
+
+# 🔓 Rendi lo script eseguibile automaticamente (se non lo è già)
+if [ ! -x "$0" ]; then
+    chmod +x "$0"
+    echo "✅ Permessi di esecuzione assegnati a $0"
+fi
+
+
 # 🟢 Chiedi il nome del dispositivo e altre info
 read -p "📌 Inserisci il nome del dispositivo testato: " DUT
 read -p "📌 Quante posizioni vuoi testare? " POSIZIONI
